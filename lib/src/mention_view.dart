@@ -13,7 +13,7 @@ class FlutterMentions extends StatefulWidget {
     this.leading = const [],
     this.trailing = const [],
     this.suggestionListDecoration,
-    this.focusNode,
+    required this.focusNode,
     this.decoration = const InputDecoration(),
     this.keyboardType,
     this.textInputAction,
@@ -50,6 +50,7 @@ class FlutterMentions extends StatefulWidget {
     this.appendSpaceOnAdd = true,
     this.hideSuggestionList = false,
     this.onSuggestionVisibleChanged,
+    this.suggestionListWidth,
   }) : super(key: key);
 
   final bool hideSuggestionList;
@@ -84,6 +85,11 @@ class FlutterMentions extends StatefulWidget {
   /// Defaults to `300.0`
   final double suggestionListHeight;
 
+  /// Max width for the suggestion list
+  ///
+  /// Defaults to `double.infinity`
+  final double? suggestionListWidth;
+
   /// A Functioned which is triggered when ever the input changes
   /// but with the markup of the selected mentions
   ///
@@ -96,7 +102,7 @@ class FlutterMentions extends StatefulWidget {
   final BoxDecoration? suggestionListDecoration;
 
   /// Focus node for controlling the focus of the Input.
-  final FocusNode? focusNode;
+  final FocusNode focusNode;
 
   /// Should selecting a suggestion add a space at the end or not.
   final bool appendSpaceOnAdd;
@@ -216,7 +222,6 @@ class FlutterMentions extends StatefulWidget {
   /// {@macro flutter.rendering.editable.selectionEnabled}
   bool get selectionEnabled => enableInteractiveSelection;
 
-  /// {@template flutter.material.textfield.onTap}
   /// Called for each distinct tap except for every second tap of a double tap.
   final GestureTapCallback? onTap;
 
@@ -354,6 +359,21 @@ class FlutterMentionsState extends State<FlutterMentions> {
     }
   }
 
+  // list focus Node
+  final _listFocusNode = FocusNode();
+  void _handleKeyEvent(RawKeyEvent event) {
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+        event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _listFocusNode.requestFocus();
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+        event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      if (_listFocusNode.hasFocus) {
+        _listFocusNode.requestFocus();
+        widget.focusNode.requestFocus();
+      }
+    }
+  }
+
   void inputListeners() {
     if (widget.onChanged != null) {
       widget.onChanged!(controller!.text);
@@ -403,6 +423,8 @@ class FlutterMentionsState extends State<FlutterMentions> {
     controller!.mapping = mapToAnotation();
   }
 
+  bool get isNotMobile => false;
+
   @override
   Widget build(BuildContext context) {
     // Filter the list based on the selection
@@ -411,21 +433,69 @@ class FlutterMentionsState extends State<FlutterMentions> {
             (element) => _selectedMention!.str.contains(element.trigger))
         : widget.mentions[0];
 
-    return Container(
-      child: PortalEntry(
-        portalAnchor: widget.suggestionPosition == SuggestionPosition.Bottom
-            ? Alignment.topCenter
-            : Alignment.bottomCenter,
-        childAnchor: widget.suggestionPosition == SuggestionPosition.Bottom
-            ? Alignment.bottomCenter
-            : Alignment.topCenter,
-        portal: ValueListenableBuilder(
+    return _Barrier(
+      onClose: () {
+        setState(() {
+          showSuggestions.value = false;
+        });
+      },
+      visible: showSuggestions.value && !widget.hideSuggestionList,
+      child: PortalTarget(
+        visible: showSuggestions.value && !widget.hideSuggestionList,
+        // anchor: Aligned(
+
+        anchor: Aligned(
+          // offset: showSuggestions.value && !widget.hideSuggestionList
+          //     ? Offset(widget.focusNode?.offset.dx ?? 0,
+          //         (widget.focusNode?.offset.dy ?? 0) - 200)
+          //     : Offset.zero,
+          offset: isNotMobile
+              ? Offset(
+                  (
+
+                      // double.parse('${controller?.selection.baseOffset ?? 0}') +
+                      ((double.parse(
+                              '${controller?.selection.baseOffset ?? 0}')) *
+                          7)),
+                  -70)
+              : Offset.zero,
+
+          follower: widget.suggestionPosition == SuggestionPosition.Bottom
+              ? isNotMobile
+                  ? Alignment.centerLeft
+                  : Alignment.topCenter
+              : isNotMobile
+                  ? Alignment.centerLeft
+                  : Alignment.bottomCenter,
+
+          target: widget.suggestionPosition == SuggestionPosition.Bottom
+              ? isNotMobile
+                  ? Alignment.centerLeft
+                  : Alignment.bottomCenter
+              : isNotMobile
+                  ? Alignment.centerLeft
+                  : Alignment.topCenter,
+          // follower: Alignment.topLeft,
+
+          // target: Alignment.topLeft,
+
+          // widthFactor: 1,
+          // backup: Aligned(
+          //   follower: Alignment.bottomLeft,
+          //   target: Alignment.topLeft,
+          //   widthFactor: 1,
+          // ),
+        ),
+
+        portalFollower: ValueListenableBuilder(
           valueListenable: showSuggestions,
           builder: (BuildContext context, bool show, Widget? child) {
             return show && !widget.hideSuggestionList
                 ? OptionList(
+                    listFocusNode: _listFocusNode,
+                    suggestionListWidth: widget.suggestionListWidth,
                     suggestionListHeight: widget.suggestionListHeight,
-                    suggestionBuilder: list.suggestionBuilder,
+                    // suggestionBuilder: list.suggestionBuilder,
                     suggestionListDecoration: widget.suggestionListDecoration,
                     data: list.data.where((element) {
                       final ele = element['display'].toLowerCase();
@@ -440,53 +510,89 @@ class FlutterMentionsState extends State<FlutterMentions> {
                       showSuggestions.value = false;
                     },
                   )
-                : Container();
+                : Container(
+                    height: 50,
+                    width: 50,
+                    color: Colors.yellow,
+                  );
           },
         ),
         child: Row(
           children: [
             ...widget.leading,
             Expanded(
-              child: TextField(
-                maxLines: widget.maxLines,
-                minLines: widget.minLines,
-                maxLength: widget.maxLength,
-                focusNode: widget.focusNode,
-                keyboardType: widget.keyboardType,
-                keyboardAppearance: widget.keyboardAppearance,
-                textInputAction: widget.textInputAction,
-                textCapitalization: widget.textCapitalization,
-                style: widget.style,
-                textAlign: widget.textAlign,
-                textDirection: widget.textDirection,
-                readOnly: widget.readOnly,
-                showCursor: widget.showCursor,
-                autofocus: widget.autofocus,
-                autocorrect: widget.autocorrect,
-                maxLengthEnforcement: widget.maxLengthEnforcement,
-                cursorColor: widget.cursorColor,
-                cursorRadius: widget.cursorRadius,
-                cursorWidth: widget.cursorWidth,
-                buildCounter: widget.buildCounter,
-                autofillHints: widget.autofillHints,
-                decoration: widget.decoration,
-                expands: widget.expands,
-                onEditingComplete: widget.onEditingComplete,
-                onTap: widget.onTap,
-                onSubmitted: widget.onSubmitted,
-                enabled: widget.enabled,
-                enableInteractiveSelection: widget.enableInteractiveSelection,
-                enableSuggestions: widget.enableSuggestions,
-                scrollController: widget.scrollController,
-                scrollPadding: widget.scrollPadding,
-                scrollPhysics: widget.scrollPhysics,
-                controller: controller,
+              child: RawKeyboardListener(
+                focusNode: _listFocusNode,
+                onKey: _handleKeyEvent,
+                child: TextField(
+                  maxLines: widget.maxLines,
+                  minLines: widget.minLines,
+                  maxLength: widget.maxLength,
+                  focusNode: widget.focusNode,
+                  keyboardType: widget.keyboardType,
+                  keyboardAppearance: widget.keyboardAppearance,
+                  textInputAction: widget.textInputAction,
+                  textCapitalization: widget.textCapitalization,
+                  style: widget.style,
+                  textAlign: widget.textAlign,
+                  textDirection: widget.textDirection,
+                  readOnly: widget.readOnly,
+                  showCursor: widget.showCursor,
+                  autofocus: widget.autofocus,
+                  autocorrect: widget.autocorrect,
+                  maxLengthEnforcement: widget.maxLengthEnforcement,
+                  cursorColor: widget.cursorColor,
+                  cursorRadius: widget.cursorRadius,
+                  cursorWidth: widget.cursorWidth,
+                  buildCounter: widget.buildCounter,
+                  autofillHints: widget.autofillHints,
+                  decoration: widget.decoration,
+                  expands: widget.expands,
+                  onEditingComplete: widget.onEditingComplete,
+                  onTap: widget.onTap,
+                  onSubmitted: widget.onSubmitted,
+                  enabled: widget.enabled,
+                  enableInteractiveSelection: widget.enableInteractiveSelection,
+                  enableSuggestions: widget.enableSuggestions,
+                  scrollController: widget.scrollController,
+                  scrollPadding: widget.scrollPadding,
+                  scrollPhysics: widget.scrollPhysics,
+                  controller: controller,
+                ),
               ),
             ),
             ...widget.trailing,
           ],
         ),
       ),
+    );
+  }
+}
+
+class _Barrier extends StatelessWidget {
+  const _Barrier({
+    Key? key,
+    required this.onClose,
+    required this.visible,
+    required this.child,
+  }) : super(key: key);
+
+  final Widget child;
+  final VoidCallback onClose;
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) {
+    return PortalTarget(
+      visible: visible,
+      closeDuration: kThemeAnimationDuration,
+      portalFollower: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onClose,
+          child: Container(
+            color: Colors.transparent,
+          )),
+      child: child,
     );
   }
 }
