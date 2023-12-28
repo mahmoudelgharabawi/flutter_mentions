@@ -44,7 +44,7 @@ class _OptionListState extends State<OptionList> {
             selectedIndex = selectedIndex! - 1;
 
             _controller.jumpTo(
-              offset - 30,
+              offset - 10,
             );
           }
         }
@@ -57,7 +57,7 @@ class _OptionListState extends State<OptionList> {
           if (selectedIndex != (widget.data.length - 1)) {
             selectedIndex = selectedIndex! + 1;
             _controller.jumpTo(
-              offset + 30,
+              offset + 10,
             );
           }
         }
